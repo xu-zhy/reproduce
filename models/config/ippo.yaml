@@ -1,0 +1,55 @@
+seed: 42
+framework: "torch"
+env: "balance"
+kl_coeff: 0.01
+kl_target: 0.01
+lambda: 0.9
+clip_param: 0.2
+vf_loss_coeff: 1
+vf_clip_param: !!float .inf
+entropy_coeff: 0.01
+train_batch_size: 60000
+rollout_fragment_length: 500
+sgd_minibatch_size: 4096
+num_sgd_iter: 45
+num_gpus: 1
+num_workers: 5
+num_envs_per_worker: 24
+lr: 0.00005
+gamma: 0.99
+use_gae: true
+use_critic: true
+grad_clip: 40
+batch_mode: "complete_episodes"
+model:
+  custom_model: "IPPO"
+  custom_action_dist: "hom_multi_action"
+  custom_model_config:
+    activation_fn: "tanh"
+    centralised_critic: false
+    heterogeneous: false
+    use_beta: false
+    aggr: "add"
+    use_mlp: false
+    pos_start: 0
+    pos_dim: 2
+    vel_start: 2
+    vel_dim: 2
+    trainer: "MultiPPOTrainer"
+env_config:
+  device: "cpu"
+  num_envs: 24
+  scenario_name: "balance"
+  continuous_actions: true
+  max_steps: 500
+  scenario_config:
+    n_agents: 4
+evaluation_interval: 5
+evaluation_duration: 1
+evaluation_num_workers: 1
+evaluation_parallel_to_training: true
+evaluation_config:
+  num_envs_per_worker: 1
+  env_config:
+    num_envs: 1
+

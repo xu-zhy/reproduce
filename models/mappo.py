@@ -1,171 +1,96 @@
 import torch
-from torch import nn
+import torch.nn as nn
+import numpy as np
 from ray.rllib.models import ModelV2
-from ray.rllib.utils.annotations import override
-from ray.rllib.models.torch.misc import SlimConv2d
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
+from ray.rllib.utils.annotations import override
 
-# for mappo, set share_observations=True, use_beta=True
+from models.mlp import MLP
+
 class MAPPO(TorchModelV2, nn.Module):
     def __init__(
-        self, 
-        obs_space, 
-        action_space, 
-        num_outputs, 
-        model_config, 
-        name,
-        encoder_out_features,
-        shared_nn_out_features_per_agent,
-        value_state_encoder_cnn_out_features,
-        share_observations,
-        use_beta,
+        self, obs_space, action_space, num_outputs, model_config, name, **cfg,
     ):
         TorchModelV2.__init__(
             self, obs_space, action_space, num_outputs, model_config, name
         )
         nn.Module.__init__(self)
+        self.n_agents = len(obs_space.original_space)
+        self.outputs_per_agent = num_outputs // self.n_agents
+        self.trainer = cfg["trainer"]
+        self.pos_dim = cfg["pos_dim"]
+        self.pos_start = cfg["pos_start"]
+        self.vel_start = cfg["vel_start"]
+        self.vel_dim = cfg["vel_dim"]
+        self.use_beta = cfg["use_beta"]
         
-        self.encoder_out_features = encoder_out_features
-        self.shared_nn_out_features_per_agent = shared_nn_out_features_per_agent
-        self.value_state_encoder_cnn_out_features = value_state_encoder_cnn_out_features
-        self.share_observations = share_observations
-        self.use_beta = use_beta
-        
-        self.n_agents = len(obs_space.original_space["agents"])
-        self.outputs_per_agent = int(num_outputs / self.n_agents)
-        obs_shape = obs_space.original_space["agents"][0].shape
-        
-        ########### Action NN ###########
-        
-        self.action_encoder = nn.Sequential(
-            nn.Linear(obs_shape[0], 32),
-            nn.ReLU(),
-            nn.Linear(32, self.encoder_out_features),
-            nn.ReLU(),
+        self.obs_shape = obs_space.original_space[0].shape[0]
+        self.obs_shape -= self.pos_dim
+        self.share_obs_shape = self.obs_shape * self.n_agents
+        # print("obs_shape", self.obs_shape) #9
+            
+        self.actor_networks = nn.ModuleList(
+            [
+                MLP(
+                    self.obs_shape,
+                    self.outputs_per_agent,
+                    self.n_agents,
+                )
+            ]
         )
-        
-        share_n_agents = self.n_agents if self.share_observations else 1
-        self.action_shared = nn.Sequential(
-            nn.Linear(self.encoder_out_features * share_n_agents, 64),
-            nn.ReLU(),
-            nn.Linear(64, self.shared_nn_out_features_per_agent * share_n_agents),
-            nn.ReLU(),
+        self.value_networks = nn.ModuleList(
+            [
+                MLP(
+                    self.share_obs_shape, 
+                    1,
+                    self.n_agents,
+                )
+            ]
         )
-        
-        post_logits = [
-            nn.Linear(self.shared_nn_out_features_per_agent, 32),
-            nn.ReLU(),
-            nn.Linear(32, self.outputs_per_agent),
-        ]
-        nn.init.xavier_uniform_(post_logits[-1].weight)
-        nn.init.constant_(post_logits[-1].bias, 0)
-        self.action_output = nn.Sequential(*post_logits)
-        
-        ########### Value NN ###########
-        
-        self.value_encoder = nn.Sequential(
-            nn.Linear(obs_shape[0], 32),
-            nn.ReLU(),
-            nn.Linear(32, self.encoder_out_features),
-            nn.ReLU(),
-        )
+        self.share_init_hetero_networks()
 
-        self.value_encoder_state = nn.Sequential(
-            SlimConv2d(
-                2, 8, 3, 2, 1
-            ),  # in_channels, out_channels, kernel, stride, padding
-            SlimConv2d(
-                8, 8, 3, 2, 1
-            ),  # in_channels, out_channels, kernel, stride, padding
-            SlimConv2d(8, self.value_state_encoder_cnn_out_features, 3, 2, 1),
-            nn.Flatten(1, -1),
-        )
-
-        self.value_shared = nn.Sequential(
-            nn.Linear(
-                self.encoder_out_features * self.n_agents
-                + self.value_state_encoder_cnn_out_features,
-                64,
-            ),
-            nn.ReLU(),
-            nn.Linear(64, self.shared_nn_out_features_per_agent * self.n_agents),
-            nn.ReLU(),
-        )
-
-        value_post_logits = [
-            nn.Linear(self.shared_nn_out_features_per_agent, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-        ]
-        nn.init.xavier_uniform_(value_post_logits[-1].weight)
-        nn.init.constant_(value_post_logits[-1].bias, 0)
-        self.value_output = nn.Sequential(*value_post_logits)
-    
-    @override(ModelV2)  
     def forward(self, input_dict, state, seq_lens):
-        batch_size = input_dict["obs"]["state"].shape[0]
-        device = input_dict["obs"]["state"].device
+        batch_size = input_dict["obs"][0].shape[0]
+        device = input_dict["obs"][0].device
+
+        obs = torch.stack(input_dict["obs"], dim=1)
+        obs_no_pos = torch.cat(
+            [
+                obs[..., : self.pos_start],
+                obs[..., self.pos_start + self.pos_dim :],
+            ],
+            dim=-1,
+        ).view(
+            batch_size, self.n_agents, self.obs_shape
+        )  # This acts like an assertion
+        obs = obs_no_pos
         
-        action_feature_map = torch.zeros(
-            batch_size, self.n_agents, self.encoder_out_features
-        ).to(device)
-        value_feature_map = torch.zeros(
-            batch_size, self.n_agents, self.encoder_out_features
-        ).to(device)
-        for i in range(self.n_agents):
-            agent_obs = input_dict["obs"]["agents"][i]
-            action_feature_map[:, i] = self.action_encoder(agent_obs)
-            value_feature_map[:, i] = self.value_encoder(agent_obs)
-        value_state_features = self.value_encoder_state(
-            input_dict["obs"]["state"].permute(0, 3, 1, 2)
-        )
+        share_obs = obs.reshape(batch_size, -1).cpu().numpy()
+        share_obs = np.expand_dims(share_obs, 1).repeat(self.n_agents, axis=1)
+        # to torch
+        share_obs = torch.tensor(share_obs, dtype=torch.float32).to(device)
+        # print("share_obs", obs.shape) #torch.Size([32, 4, 36])
+
+        logits, _ = self.actor_networks[0](obs, state)
+        value, _ = self.value_networks[0](share_obs, state)
+
+        outputs = logits.view(batch_size, self.n_agents * self.outputs_per_agent)
+        values = value.view(batch_size, self.n_agents)
         
-        if self.share_observations:
-            # We have a big common shared center NN so that all agents have access to the encoded observations of all agents
-            action_shared_features = self.action_shared(
-                action_feature_map.view(
-                    batch_size, self.n_agents * self.encoder_out_features
-                )
-            ).view(batch_size, self.n_agents, self.shared_nn_out_features_per_agent)
-        else:
-            # Each agent only has access to its own local observation
-            action_shared_features = torch.empty(
-                batch_size, self.n_agents, self.shared_nn_out_features_per_agent
-            ).to(device)
-            for i in range(self.n_agents):
-                action_shared_features[:, i] = self.action_shared(
-                    action_feature_map[:, i]
-                )
-
-        value_shared_features = self.value_shared(
-            torch.cat(
-                [
-                    value_feature_map.view(
-                        batch_size, self.n_agents * self.encoder_out_features
-                    ),
-                    value_state_features,
-                ],
-                dim=1,
-            )
-        ).view(batch_size, self.n_agents, self.shared_nn_out_features_per_agent)
-
-        outputs = torch.empty(batch_size, self.n_agents, self.outputs_per_agent).to(
-            device
-        )
-        values = torch.empty(batch_size, self.n_agents).to(device)
-
-        for i in range(self.n_agents):
-            outputs[:, i] = self.action_output(action_shared_features[:, i])
-            values[:, i] = self.value_output(value_shared_features[:, i]).squeeze(1)
-
         self._cur_value = values
+        
+        return outputs, state
 
-        return outputs.view(batch_size, self.n_agents * self.outputs_per_agent), state
-    
     @override(ModelV2)
     def value_function(self):
         assert self._cur_value is not None, "must call forward() first"
         return self._cur_value
-        
-        
-        
+
+    def share_init_hetero_networks(self):
+        for child in self.children():
+            assert isinstance(child, nn.ModuleList)
+            for agent_index, agent_model in enumerate(child.children()):
+                if agent_index == 0:
+                    state_dict = agent_model.state_dict()
+                else:
+                    agent_model.load_state_dict(state_dict)

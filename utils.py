@@ -67,9 +67,13 @@ def get_path(scenario_name: str, algorithm_name: str, restore: bool):
 def register_model(algorithm_name: str):
     if algorithm_name == "CPPO":
         return
-    # from models.ppo2 import PPO
-    from models.fcnet import MyFullyConnectedNetwork
-    ModelCatalog.register_custom_model(algorithm_name, MyFullyConnectedNetwork)
+    if algorithm_name == "MAPPO":
+        from models.mappo import MAPPO
+        ModelCatalog.register_custom_model(algorithm_name, MAPPO)
+    elif algorithm_name == "IPPO":
+        from models.ippo import IPPO
+        ModelCatalog.register_custom_model(algorithm_name, IPPO)
+
     ModelCatalog.register_custom_action_dist(
         "hom_multi_action", TorchHomogeneousMultiActionDistribution
     )
@@ -152,15 +156,17 @@ def get_checkpoint_config(checkpoint_path: Union[str, Path]):
         config = pickle.load(f)
     return config
 
-def get_config_trainer_and_env_from_checkpoint(algorithm, checkpoint_path, for_evaluation, config_update_fn):
+def get_config_trainer_and_env_from_checkpoint(
+    algorithm, checkpoint_path, for_evaluation=True, config_update_fn=None
+):
     config = get_checkpoint_config(checkpoint_path)
     scenario_name = config["env"]
-    init_ray(scenario_name=scenario_name)
+    project_root, _ = get_path(scenario_name, algorithm, False)
+    init_ray(scenario_name=scenario_name, log_dir=project_root)
     register_model(algorithm)
 
     if for_evaluation:
 
-        # Env
         env_config = config["env_config"]
         env_config.update({"num_envs": 1})
 
@@ -184,13 +190,92 @@ def get_config_trainer_and_env_from_checkpoint(algorithm, checkpoint_path, for_e
 
     print(f"\nConfig: {config}")
 
-    trainer = MultiPPOTrainer(env=scenario_name, config=config)
+    if algorithm == "CPPO":
+        trainer = PPOTrainer(env=scenario_name, config=config)
+    else:
+        trainer = MultiPPOTrainer(env=scenario_name, config=config)
     trainer.restore(str(checkpoint_path))
     trainer.start_config = config
     env = env_creator(config["env_config"])
     env.seed(config["seed"])
 
     return config, trainer, env
+
+def rollout_episodes(
+    n_episodes, render, get_obs, get_actions, trainer, env, action_callback=None
+):
+    assert (trainer is None) != (action_callback is None)
+
+    best_gif = None
+    rewards = []
+    observations = []
+    actions = []
+
+    best_reward = max(rewards, default=float("-inf"))
+
+    for j in range(len(rewards), n_episodes):
+        env.seed(j)
+        frame_list = []
+        observations_this_episode = []
+        actions_this_episode = []
+        reward_sum = 0
+        observation = env.vector_reset()[0]
+        i = 0
+        done = False
+        if render:
+            frame_list.append(
+                env.try_render_at(mode="rgb_array", visualize_when_rgb=True)
+            )
+        while not done:
+            i += 1
+
+            if get_obs:
+                observations_this_episode.append(observation)
+
+            if trainer is not None:
+                action = trainer.compute_single_action(observation)
+            else:
+                action = action_callback(observation)
+
+            if get_actions:
+                actions_this_episode.append(action)
+            obss, rews, ds, infos = env.vector_step([action])
+            observation = obss[0]
+            reward = rews[0]
+            done = ds[0]
+            info = infos[0]
+            reward_sum += reward
+            if render:
+                frame_list.append(
+                    env.try_render_at(mode="rgb_array", visualize_when_rgb=True)
+                )
+        print(f"Episode: {j + 1}, total reward: {reward_sum}")
+        rewards.append(reward_sum)
+        if reward_sum > best_reward and render:
+            best_reward = reward_sum
+            best_gif = frame_list.copy()
+        if get_obs:
+            observations.append(observations_this_episode)
+        if get_actions:
+            actions.append(actions_this_episode)
+    print(
+        f"Max reward: {np.max(rewards)}\nReward mean: {np.mean(rewards)}\nMin reward: {np.min(rewards)}"
+    )
+
+    assert len(rewards) == n_episodes
+    if get_obs:
+        assert len(observations) == n_episodes
+    if get_actions:
+        assert len(actions) == n_episodes
+    if render:
+        assert best_gif
+
+    return (
+        rewards,
+        best_gif,
+        observations,
+        actions,
+    )
     
         
     

@@ -1,0 +1,64 @@
+{
+  "batch_mode": "complete_episodes",
+  "callbacks": "<class 'utils.EvaluationCallbacks'>",
+  "clip_param": 0.2,
+  "entropy_coeff": 0.01,
+  "env": "transport",
+  "env_config": {
+    "continuous_actions": true,
+    "device": "cpu",
+    "max_steps": 500,
+    "num_envs": 24,
+    "scenario_config": {
+      "n_agents": 4
+    },
+    "scenario_name": "transport"
+  },
+  "evaluation_config": {
+    "env_config": {
+      "num_envs": 1
+    },
+    "num_envs_per_worker": 1
+  },
+  "evaluation_duration": 1,
+  "evaluation_interval": 5,
+  "evaluation_num_workers": 1,
+  "evaluation_parallel_to_training": true,
+  "framework": "torch",
+  "gamma": 0.99,
+  "grad_clip": 40,
+  "kl_coeff": 0.01,
+  "kl_target": 0.01,
+  "lambda": 0.9,
+  "lr": 0.0001,
+  "model": {
+    "custom_action_dist": "hom_multi_action",
+    "custom_model": "IPPO",
+    "custom_model_config": {
+      "activation_fn": "tanh",
+      "aggr": "add",
+      "centralised_critic": false,
+      "heterogeneous": false,
+      "pos_dim": 2,
+      "pos_start": 0,
+      "trainer": "MultiPPOTrainer",
+      "use_beta": false,
+      "use_mlp": false,
+      "vel_dim": 2,
+      "vel_start": 2
+    }
+  },
+  "num_envs_per_worker": 24,
+  "num_gpus": 1,
+  "num_sgd_iter": 45,
+  "num_workers": 5,
+  "restore": false,
+  "rollout_fragment_length": 500,
+  "seed": 42,
+  "sgd_minibatch_size": 4096,
+  "train_batch_size": 60000,
+  "use_critic": true,
+  "use_gae": true,
+  "vf_clip_param": Infinity,
+  "vf_loss_coeff": 1
+}

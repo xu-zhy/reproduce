@@ -2,5 +2,5 @@
 
 import os
 
-for algorithm in ["IPPO"]:
+for algorithm in ["MAPPO", "IPPO"]:
     os.system(f"python train.py --algorithm {algorithm} --scenario_name transport")

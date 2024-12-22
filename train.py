@@ -1,3 +1,8 @@
+'''
+A script for training a model.
+python train.py --algorithm MAPPO --scenario_name transport
+For multi-run training, use multi_run.py.
+'''
 import pickle
 import argparse
 
@@ -45,7 +50,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='VMAS Reproduce')
     parser.add_argument('--scenario_name', type=str, default="wheel")
     parser.add_argument('--algorithm', type=str, default="MAPPO")
-    parser.add_argument('--restore', action="store_true")
+    parser.add_argument('--restore', action="store_true") # support restore from checkpoint
     args = parser.parse_args()
     check_args(args)
     

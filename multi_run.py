@@ -1,4 +1,6 @@
-# multi run train.py with different algorithms
+'''
+A script for multi-run training.
+'''
 
 import os
 

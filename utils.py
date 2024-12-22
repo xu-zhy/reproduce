@@ -23,6 +23,7 @@ from rllib_differentiable_comms.multi_action_dist import (
 import vmas
 from vmas import make_env
 
+############################# ENVIRONMENT #############################
 def env_creator(config: Dict):
     env = make_env(
         scenario=config["scenario_name"],
@@ -44,40 +45,7 @@ def init_ray(scenario_name: str, log_dir: Union[str, Path]):
         print("Ray init!")
     register_env(scenario_name, lambda config: env_creator(config))
     
-def get_path(scenario_name: str, algorithm_name: str, restore: bool):
-    project_root = Path(__file__).resolve().parent
-    results_dir = project_root / "ray_results" / scenario_name / algorithm_name
-
-    checkpoint_dir = None
-    if restore:
-        latest_dir = max(
-            (d for d in results_dir.iterdir() if d.is_dir()), 
-            key=lambda d: datetime.strptime(d.name.split("_")[-2] + "_" + d.name.split("_")[-1], "%Y-%m-%d_%H-%M-%S")
-        )
-
-        checkpoint_dir = max(
-            (c for c in latest_dir.iterdir() if c.is_dir()), 
-            key=lambda c: int(c.name.split("_")[-1])
-        )
-        
-        print(f"Restoring from {checkpoint_dir}")
-    
-    return project_root, checkpoint_dir
-
-def register_model(algorithm_name: str):
-    if algorithm_name == "CPPO":
-        return
-    if algorithm_name == "MAPPO":
-        from models.mappo import MAPPO
-        ModelCatalog.register_custom_model(algorithm_name, MAPPO)
-    elif algorithm_name == "IPPO":
-        from models.ippo import IPPO
-        ModelCatalog.register_custom_model(algorithm_name, IPPO)
-
-    ModelCatalog.register_custom_action_dist(
-        "hom_multi_action", TorchHomogeneousMultiActionDistribution
-    )
-    
+############################# UTILS #############################
 def check_args(args):
     # check algorithm name
     args.algorithm = args.algorithm.upper()
@@ -99,8 +67,60 @@ def load_config(algorithm_name: str, args: Dict):
         del config["model"]
         
     return config
+
+def get_path(scenario_name: str, algorithm_name: str, restore: bool):
+    project_root = Path(__file__).resolve().parent
+    results_dir = project_root / "ray_results" / scenario_name / algorithm_name
+
+    checkpoint_dir = None
+    if restore:
+        latest_dir = max(
+            (d for d in results_dir.iterdir() if d.is_dir()), 
+            key=lambda d: datetime.strptime(d.name.split("_")[-2] + "_" + d.name.split("_")[-1], "%Y-%m-%d_%H-%M-%S")
+        )
+
+        checkpoint_dir = max(
+            (c for c in latest_dir.iterdir() if c.is_dir()), 
+            key=lambda c: int(c.name.split("_")[-1])
+        )
+        
+        print(f"Restoring from {checkpoint_dir}")
     
+    return project_root, checkpoint_dir
+
+############################# MODELS #############################
+def register_model(algorithm_name: str):
+    if algorithm_name == "CPPO":
+        return
+    if algorithm_name == "MAPPO":
+        from models.mappo import MAPPO
+        ModelCatalog.register_custom_model(algorithm_name, MAPPO)
+    elif algorithm_name == "IPPO":
+        from models.ippo import IPPO
+        ModelCatalog.register_custom_model(algorithm_name, IPPO)
+
+    ModelCatalog.register_custom_action_dist(
+        "hom_multi_action", TorchHomogeneousMultiActionDistribution
+    )
+
+def get_activation_fn(name):
+    # Already a callable, return as-is.
+    if callable(name):
+        return name
+
+    # Infer the correct activation function from the string specifier.
+    if name in ["linear", None]:
+        return None
+    if name == "relu":
+        return nn.ReLU
+    elif name == "tanh":
+        return nn.Tanh
+    elif name == "elu":
+        return nn.ELU
+
+    raise ValueError("Unknown activation ({}) for framework=!".format(name))
     
+############################# EVALUATION #############################
 class EvaluationCallbacks(DefaultCallbacks):
     def on_episode_step(
         self,
@@ -132,24 +152,9 @@ class EvaluationCallbacks(DefaultCallbacks):
             for b_key in info[a_key]:
                 metric = np.array(episode.user_data[f"{a_key}/{b_key}"])
                 episode.custom_metrics[f"{a_key}/{b_key}"] = np.sum(metric).item()
-                
-def get_activation_fn(name):
-    # Already a callable, return as-is.
-    if callable(name):
-        return name
 
-    # Infer the correct activation function from the string specifier.
-    if name in ["linear", None]:
-        return None
-    if name == "relu":
-        return nn.ReLU
-    elif name == "tanh":
-        return nn.Tanh
-    elif name == "elu":
-        return nn.ELU
 
-    raise ValueError("Unknown activation ({}) for framework=!".format(name))
-
+############################# ROLLING OUT #############################
 def get_checkpoint_config(checkpoint_path: Union[str, Path]):
     params_path = Path(checkpoint_path).parent.parent.parent / "params.pkl"
     with open(params_path, "rb") as f:
@@ -213,6 +218,7 @@ def rollout_episodes(
 
     best_reward = max(rewards, default=float("-inf"))
 
+    print(f"Rolling out {n_episodes} episodes")
     for j in range(len(rewards), n_episodes):
         env.seed(j)
         frame_list = []

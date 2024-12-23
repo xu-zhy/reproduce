@@ -1,3 +1,6 @@
+"""
+author: ProrokLab (https://www.proroklab.org/)
+"""
 import gym
 import numpy as np
 import tree

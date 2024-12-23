@@ -1,5 +1,6 @@
 """
 PyTorch's policy class used for PPO.
+author: ProrokLab (https://www.proroklab.org/)
 """
 #  Copyright (c) 2023.
 #  ProrokLab (https://www.proroklab.org/)
@@ -68,25 +69,18 @@ logger = logging.getLogger(__name__)
 
 class InvalidActionSpace(Exception):
     """Raised when the action space is invalid"""
-
     pass
 
 
-def standardized(array: np.ndarray):
+def standardized(array):
     """Normalize the values in an array.
-
-    Args:
-        array (np.ndarray): Array of values to normalize.
-
-    Returns:
-        array with zero mean and unit standard deviation.
     """
     return (array - array.mean(axis=0, keepdims=True)) / array.std(
         axis=0, keepdims=True
     ).clip(min=1e-4)
 
 
-def standardize_fields(samples: SampleBatchType, fields: List[str]) -> SampleBatchType:
+def standardize_fields(samples, fields):
     """Standardize fields of the given SampleBatch"""
     _check_sample_batch_type(samples)
     wrapped = False

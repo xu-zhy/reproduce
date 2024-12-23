@@ -15,8 +15,8 @@ from ray.rllib.evaluation import MultiAgentEpisode
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.agents.ppo import PPOTrainer
 
-from rllib_differentiable_comms.multi_trainer import MultiPPOTrainer
-from rllib_differentiable_comms.multi_action_dist import (
+from trainer.multi_trainer import MultiPPOTrainer
+from trainer.multi_action_dist import (
     TorchHomogeneousMultiActionDistribution,
 )
 

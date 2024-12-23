@@ -9,7 +9,7 @@ import argparse
 from ray import tune
 from ray.rllib.agents.ppo import PPOTrainer
 
-from rllib_differentiable_comms.multi_trainer import MultiPPOTrainer
+from trainer.multi_trainer import MultiPPOTrainer
 
 from utils import init_ray, get_path, register_model
 from utils import check_args, load_config

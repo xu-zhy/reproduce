@@ -1,5 +1,7 @@
 """
-author: ProrokLab (https://www.proroklab.org/)
+Action distribution for multi-agent environments.
+author: 
+- ProrokLab (https://www.proroklab.org/)
 """
 import gym
 import numpy as np

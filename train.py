@@ -9,7 +9,7 @@ import argparse
 from ray import tune
 from ray.rllib.agents.ppo import PPOTrainer
 
-from trainer.multi_trainer import MultiPPOTrainer
+from trainer.multi_expert_trainer import MultiPPOTrainer
 
 from utils import init_ray, get_path, register_model
 from utils import check_args, load_config
@@ -31,6 +31,7 @@ def train(
     
     register_model(algorithm)
     config = load_config(algorithm, args) if not restore else restore_config
+    print(config)
 
     tune.run(
         PPOTrainer if algorithm == "CPPO" else MultiPPOTrainer,
@@ -51,6 +52,8 @@ if __name__ == "__main__":
     parser.add_argument('--scenario_name', type=str, default="wheel")
     parser.add_argument('--algorithm', type=str, default="MAPPO")
     parser.add_argument('--restore', action="store_true") # support restore from checkpoint
+    parser.add_argument('--n_agents', type=int, default=4)
+    parser.add_argument('--use_expert', action="store_true")
     args = parser.parse_args()
     check_args(args)
     

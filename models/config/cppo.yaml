@@ -19,6 +19,7 @@ lr: 0.00005
 gamma: 0.99
 use_gae: true
 use_critic: true
+use_expert: false
 grad_clip: 40
 batch_mode: "complete_episodes"
 model:

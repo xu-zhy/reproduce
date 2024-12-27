@@ -15,7 +15,7 @@ from ray.rllib.evaluation import MultiAgentEpisode
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.agents.ppo import PPOTrainer
 
-from trainer.multi_trainer import MultiPPOTrainer
+from trainer.multi_expert_trainer import MultiPPOTrainer
 from trainer.multi_action_dist import (
     TorchHomogeneousMultiActionDistribution,
 )
@@ -61,6 +61,8 @@ def load_config(algorithm_name: str, args: Dict):
     config["env_config"]["scenario_name"] = args.scenario_name
     config["restore"] = args.restore
     config["callbacks"] = EvaluationCallbacks
+    config["env_config"]["scenario_config"]["n_agents"] = args.n_agents
+    config["use_expert"] = args.use_expert
     
     if algorithm_name == "CPPO":
         # delete model config
@@ -94,6 +96,7 @@ def register_model(algorithm_name: str):
         return
     if algorithm_name == "MAPPO":
         from models.mappo import MAPPO
+        # from models.impl import MAPPO
         ModelCatalog.register_custom_model(algorithm_name, MAPPO)
     elif algorithm_name == "IPPO":
         from models.ippo import IPPO

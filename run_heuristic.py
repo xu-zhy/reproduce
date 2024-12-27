@@ -2,7 +2,6 @@ import time
 from typing import Type
 
 import torch
-
 from vmas import make_env
 from vmas.simulator.heuristic_policy import BaseHeuristicPolicy, RandomPolicy
 from vmas.simulator.utils import save_video
@@ -41,11 +40,24 @@ def run_heuristic(
     obs = env.reset()
     total_reward = 0
     episode_cnt = 1
+    done = False
+    buffer = []
     for _ in range(n_steps):
         step += 1
         actions = [None] * len(obs)
         for i in range(len(obs)):
             actions[i] = policy.compute_action(obs[i], u_range=env.agents[i].u_range)
+        
+        if obs[0] is not None:
+            # obs: list of len 4, 11 elements for each agent
+            # actions: list of len 4, 2 elements for each agent
+            # obs_ = []
+            # for i in range(len(obs)):
+            #     print(obs[i][0])
+            #     obs_.append(obs[i][0][2:])
+            # print(obs_)
+            buffer.append({"obs": obs, "actions": actions})
+            
         obs, rews, dones, info = env.step(actions)
         rewards = torch.stack(rews, dim=1)
         global_reward = rewards.mean(dim=1)
@@ -60,20 +72,34 @@ def run_heuristic(
                 )
             )
         if all(dones):
-            episode_cnt += 1
             obs = env.reset()
 
     total_time = time.time() - init_time
     if render and save_render:
         save_video(scenario_name, frame_list, 1 / env.scenario.world.dt)
         
+    # save buffer
+    import pickle
+    print(len(buffer))
+    with open(f"buffer_{scenario_name}.pkl", "wb") as f:
+        pickle.dump(buffer, f)
+        
 
     print(
         f"It took: {total_time}s for {n_steps} steps of {n_envs} parallel environments on device {device}\n"
-        f"The average total reward was {total_reward} with {episode_cnt} episodes\n"
-        f"The episode reward was {total_reward / episode_cnt}"
+        f"The average total reward was {total_reward} \n"
     )
+    return total_reward
 
+def read_buffer(scenario_name: str):
+    import pickle
+    with open(f"buffer_{scenario_name}.pkl", "rb") as f:
+        buffer = pickle.load(f)
+    
+    for i in range(10):
+        print(buffer[i]["obs"])
+        print(buffer[i]["actions"])
+    return buffer
 
 if __name__ == "__main__":
     from vmas.scenarios.transport import HeuristicPolicy as TransportHeuristic
@@ -87,8 +113,9 @@ if __name__ == "__main__":
     run_heuristic(
         scenario_name="transport",
         heuristic=TransportHeuristic,
-        n_envs=24,
-        n_steps=500,
+        n_envs=1, # for evaluation
+        n_steps=8192,
         render=True,
         save_render=False,
     )
+    # read_buffer("transport")

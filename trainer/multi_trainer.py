@@ -239,6 +239,8 @@ def ppo_surrogate_loss(
         Union[TensorType, List[TensorType]]: A single loss tensor or a list
             of loss tensors.
     """
+    # print("train_batch_obs", train_batch[SampleBatch.OBS].shape)
+    # print("train_batch_actions", train_batch[SampleBatch.ACTIONS].shape)
     logits, state = model(train_batch)
     # logits has shape (BATCH, num_agents * num_outputs_per_agent)
     curr_action_dist = dist_class(logits, model)

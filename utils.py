@@ -51,6 +51,8 @@ def check_args(args):
     args.algorithm = args.algorithm.upper()
     if args.algorithm not in ["CPPO", "MAPPO", "IPPO"]:
         raise ValueError("Invalid algorithm name")
+    if args.algorithm == "CPPO" and args.add_noise:
+        raise ValueError("CPPO does not support adding noise")
     
 def load_config(algorithm_name: str, args: Dict):
     config_path = Path(__file__).parent / "models" / "config" / f"{algorithm_name.lower()}.yaml"
@@ -59,8 +61,10 @@ def load_config(algorithm_name: str, args: Dict):
 
     config["env"] = args.scenario_name
     config["env_config"]["scenario_name"] = args.scenario_name
+    config["env_config"]["scenario_config"]["n_agents"] = args.n_agents
     config["restore"] = args.restore
     config["callbacks"] = EvaluationCallbacks
+    config["model"]["custom_model_config"]["add_noise"] = args.add_noise
     
     if algorithm_name == "CPPO":
         # delete model config

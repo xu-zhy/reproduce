@@ -27,6 +27,7 @@ model:
   custom_model_config:
     activation_fn: "tanh"
     use_beta: false
+    add_noise: false
     aggr: "add"
     pos_start: 0
     pos_dim: 2

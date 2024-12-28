@@ -31,6 +31,7 @@ def train(
     
     register_model(algorithm)
     config = load_config(algorithm, args) if not restore else restore_config
+    print(f"\nConfig: {config}")
 
     tune.run(
         PPOTrainer if algorithm == "CPPO" else MultiPPOTrainer,
@@ -48,8 +49,10 @@ def train(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='VMAS Reproduce')
-    parser.add_argument('--scenario_name', type=str, default="wheel")
+    parser.add_argument('--scenario_name', type=str, default="transport")
     parser.add_argument('--algorithm', type=str, default="MAPPO")
+    parser.add_argument('--n_agents', type=int, default=4)
+    parser.add_argument('--add_noise', action="store_true")
     parser.add_argument('--restore', action="store_true") # support restore from checkpoint
     args = parser.parse_args()
     check_args(args)

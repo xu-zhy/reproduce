@@ -23,6 +23,7 @@ class IPPO(TorchModelV2, nn.Module):
         self.vel_start = cfg["vel_start"]
         self.vel_dim = cfg["vel_dim"]
         self.use_beta = cfg["use_beta"]
+        self.add_noise = cfg["add_noise"]
 
         self.obs_shape = obs_space.original_space[0].shape[0]
         self.obs_shape -= self.pos_dim
@@ -43,7 +44,7 @@ class IPPO(TorchModelV2, nn.Module):
                     self.obs_shape, 
                     1,
                     self.n_agents,
-                    True,
+                    self.add_noise
                 )
             ]
         )

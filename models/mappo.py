@@ -44,6 +44,7 @@ class MAPPO(TorchModelV2, nn.Module):
                     self.share_obs_shape, 
                     1,
                     self.n_agents,
+                    True,
                 )
             ]
         )

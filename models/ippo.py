@@ -43,6 +43,7 @@ class IPPO(TorchModelV2, nn.Module):
                     self.obs_shape, 
                     1,
                     self.n_agents,
+                    True,
                 )
             ]
         )

@@ -4,14 +4,6 @@ This repository reproduces the benchmark experiment in the VMAS paper.
 
 ## Reproduction Results
 
-<p float="left">
-  <img src="imgs/CPPO.gif" width="200" />
-  <img src="imgs/MAPPO.gif" width="200" /> 
-  <img src="imgs/IPPO.gif" width="200" />
-</p>
-
-
-
 | ![](imgs/CPPO.gif) | ![](imgs/MAPPO.gif) | ![](imgs/IPPO.gif) |
 |:-:|:-:|:-:|
 | CPPO | MAPPO | IPPO |

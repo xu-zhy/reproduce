@@ -4,26 +4,18 @@ This repository reproduces the benchmark experiment in the VMAS paper.
 
 ## Reproduction Results
 
-<!-- <div style="display: inline-block; width: 30%; text-align: center;">
-  <img src="imgs/CPPO.gif" width="100%" />
-  <p>CPPO</p>
-</div>
-<div style="display: inline-block; width: 30%; text-align: center;">
-  <img src="imgs/MAPPO.gif" width="100%" />
-  <p>MAPPO</p>
-</div>
-<div style="display: inline-block; width: 30%; text-align: center;">
-  <img src="imgs/IPPO.gif" width="100%" />
-  <p>IPPO</p>
-</div> -->
-
 <p float="left">
   <img src="imgs/CPPO.gif" width="200" />
   <img src="imgs/MAPPO.gif" width="200" /> 
   <img src="imgs/IPPO.gif" width="200" />
 </p>
 
-![IPPO](imgs/CPPO.gif)![MAPPO](imgs/MAPPO.gif)![IPPO](imgs/IPPO.gif)
+
+
+| ![](imgs/CPPO.gif) | ![](imgs/MAPPO.gif) | ![](imgs/IPPO.gif) |
+|:-:|:-:|:-:|
+| CPPO | MAPPO | IPPO |
+
 
 ## Running Experiments
 ### Train alogorithms(CPPO, MAPPO, IPPO)
